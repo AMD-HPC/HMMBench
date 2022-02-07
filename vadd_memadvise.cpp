@@ -48,17 +48,18 @@ int main(void)
       c[i] = 0.0f;
     }
 
-  vector_add<<<n_blocks, n_threads>>>(d_c, d_a, d_b, n);
-  hipDeviceSynchronize();
-
-  int device = -1;
+  hipDevice_t device = -1;
   hipGetDevice(&device);
-
-  printf("==== Memory allocated on CPU with hipMallocManaged (advise on GPU), accessed by GPU ====\n");
-
+  printf("Running on device %d\n",device);
+  
   hipMemAdvise( a, n * sizeof(float), hipMemAdviseSetPreferredLocation, device);
   hipMemAdvise( b, n * sizeof(float), hipMemAdviseSetPreferredLocation, device);
   hipMemAdvise( c, n * sizeof(float), hipMemAdviseSetPreferredLocation, device);
+
+  vector_add<<<n_blocks, n_threads>>>(d_c, d_a, d_b, n);
+  hipDeviceSynchronize();
+
+  printf("==== Memory allocated on CPU with hipMallocManaged (advise on GPU), accessed by GPU ====\n");
 
   t1 = std::chrono::high_resolution_clock::now();
 

@@ -47,10 +47,10 @@ int main(void)
 
   std::chrono::high_resolution_clock::time_point t1, t2;
 
-  a = (float*)calloc(n,sizeof(float));
-  b = (float*)calloc(n,sizeof(float));
-  c = (float*)calloc(n,sizeof(float));
-  c_gold = (float*)calloc(n,sizeof(float));
+  hipMallocManaged(&a,n*sizeof(float));
+  hipMallocManaged(&b,n*sizeof(float));
+  hipMallocManaged(&c,n*sizeof(float));
+  hipMallocManaged(&c_gold,n*sizeof(float));
 
   hipMalloc(&d_a,n*sizeof(float));
   hipMalloc(&d_b,n*sizeof(float));
@@ -65,10 +65,25 @@ int main(void)
 
   host_add(c_gold,a,b,n);
 
+  hipDevice_t device = -1;
+  hipGetDevice(&device);
+  printf("Running on device %d\n",device);
+
+  t1 = std::chrono::high_resolution_clock::now();  
+
+  hipMemPrefetchAsync( a, n * sizeof(float), device);
+  hipMemPrefetchAsync( b, n * sizeof(float), device);
+  hipMemPrefetchAsync( c, n * sizeof(float), device);
+  
+  t2 = std::chrono::high_resolution_clock::now();
+  double times =  std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
+
+  printf("Time spent in PrefetchAsync: %lf sec.\n",times);
+  
   vector_add<<<n_blocks, n_threads>>>(d_c, d_a, d_b, n);
   hipDeviceSynchronize();
 
-  printf("==== Memory allocated on CPU, accessed by GPU ====\n");
+  printf("==== Memory allocated on CPU with hipMallocManaged (advise on GPU), accessed by GPU ====\n");
 
   t1 = std::chrono::high_resolution_clock::now();
 
@@ -76,10 +91,8 @@ int main(void)
   hipDeviceSynchronize();
 
   t2 = std::chrono::high_resolution_clock::now();
-  double times =  std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
+  times =  std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
   printf("Warm-up elapsed time: %lf sec.\n",times);
-
-  printf("CHECK: %d\n",check(c_gold,c,n));
 
   t1 = std::chrono::high_resolution_clock::now();
 
@@ -89,11 +102,19 @@ int main(void)
   t2 = std::chrono::high_resolution_clock::now();
   times =  std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
   printf("Elapsed time: %lf sec.\n",times);
+
+  printf("CHECK: %d\n",check(c_gold,c,n));
   
+  hipMemPrefetchAsync( c, n * sizeof(float), device);
+
   hipMemcpy(d_a,a,n*sizeof(float),hipMemcpyHostToDevice);
   hipMemcpy(d_b,b,n*sizeof(float),hipMemcpyHostToDevice);
 
-  printf("==== Memory allocated on GPU, accessed by GPU ====\n");
+  printf("==== Memory allocated on GPU with hipMalloc, accessed by GPU ====\n");
+
+  hipMemPrefetchAsync( a, n * sizeof(float), hipCpuDeviceId);
+  hipMemPrefetchAsync( b, n * sizeof(float), hipCpuDeviceId);
+  hipMemPrefetchAsync( c, n * sizeof(float), hipCpuDeviceId);
 
   t1 = std::chrono::high_resolution_clock::now();
 
@@ -113,7 +134,7 @@ int main(void)
   times =  std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
   printf("Elapsed time: %lf sec.\n",times);
 
-  printf("==== Memory allocated on GPU, accessed by CPU ====\n");
+  printf("==== Memory allocated on GPU with hipMalloc, accessed by CPU ====\n");
 
   t1 = std::chrono::high_resolution_clock::now();
 
@@ -123,8 +144,6 @@ int main(void)
   times =  std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
   printf("Warm-up elapsed time: %lf sec.\n",times);
 
-  printf("CHECK: %d\n",check(c_gold,d_c,n));
-  
   t1 = std::chrono::high_resolution_clock::now();
 
   host_add(d_c, d_a, d_b, n);
@@ -133,7 +152,7 @@ int main(void)
   times =  std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
   printf("Elapsed time: %lf sec.\n",times);
 
-  printf("==== Memory allocated on CPU, accessed by CPU (Data on GPU) ====\n");
+  printf("==== Memory allocated on CPU with hipMallocManaged, accessed by CPU (Data on CPU via hipMemAdvise) ====\n");
 
   t1 = std::chrono::high_resolution_clock::now();
 
@@ -151,13 +170,15 @@ int main(void)
   times =  std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
   printf("Elapsed time: %lf sec.\n",times);
 
-  free(a);
-  free(b);
-  free(c);
+  printf("CHECK: %d\n",check(c_gold,c,n));
 
-  a = (float*)calloc(n,sizeof(float));
-  b = (float*)calloc(n,sizeof(float));
-  c = (float*)calloc(n,sizeof(float));
+  hipFree(a);
+  hipFree(b);
+  hipFree(c);
+
+  hipMallocManaged(&a,n*sizeof(float));
+  hipMallocManaged(&b,n*sizeof(float));
+  hipMallocManaged(&c,n*sizeof(float));
 
   for (int i=0; i < n; i++)
     {
@@ -166,18 +187,15 @@ int main(void)
       c[i] = 0.0f;
     }
 
-  printf("==== Memory allocated on CPU, accessed by CPU ====\n");
+  printf("==== Memory allocated on CPU with hipMallocManaged, accessed by CPU ====\n");
 
   t1 = std::chrono::high_resolution_clock::now();
 
   host_add(c, a, b, n);
 
   t2 = std::chrono::high_resolution_clock::now();
-
   times =  std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
   printf("Warm-up elapsed time: %lf sec.\n",times);
-
-  printf("CHECK: %d\n",check(c_gold,c,n));
 
   t1 = std::chrono::high_resolution_clock::now();
 
