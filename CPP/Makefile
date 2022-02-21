@@ -11,3 +11,5 @@ rocm: $(OBJ)
 
 .cpp.o:
 	$(HIPCC) $(CXXFLAGS) $(HIP_INC) $< -o $@
+clean:
+	rm *.o
