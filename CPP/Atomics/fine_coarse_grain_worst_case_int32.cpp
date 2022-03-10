@@ -24,7 +24,7 @@
 #include <cstdio>
 #include <chrono>
 
-__global__ void atomicAdd_worse(float *a, float *out, int n)
+__global__ void atomicAdd_worse(int *a, int *out, int n)
 {
   size_t index = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -34,11 +34,11 @@ __global__ void atomicAdd_worse(float *a, float *out, int n)
     }  
 }
 
-// __global__ void vector_add_float(float *out, float *a, float *b, int n, float *flag)
+// __global__ void vector_add_int(int *out, int *a, int *b, int n, int *flag)
 // {
 //   size_t index = blockIdx.x * blockDim.x + threadIdx.x;
 //   size_t stride = blockDim.x * gridDim.x;
-//   float one = 1.0f;
+//   int one = 1.0f;
 
 //   for (size_t i = index; i < n; i += stride)
 //     out[i] = a[i] + b[i];
@@ -46,7 +46,7 @@ __global__ void atomicAdd_worse(float *a, float *out, int n)
 //   atomicAdd(*flag , one);
 // }
 
-void host_add(float *out, float *a, float *b, int n)
+void host_add(int *out, int *a, int *b, int n)
 {
   int i = 0;
 
@@ -58,32 +58,32 @@ void host_add(float *out, float *a, float *b, int n)
 
 int main(void)
 {
-  float *a, *out;
-  float *d_a, *d_out;
+  int *a, *out;
+  int *d_a, *d_out;
   int n_threads = 256;
   int n_blocks = 20;
   int n = n_threads * n_blocks;
-  float elapsed = 0.0f;
+  int elapsed = 0.0f;
   hipEvent_t start_ev, stop_ev;
 
   std::chrono::high_resolution_clock::time_point t1, t2;
 
-  hipMallocManaged(&a,n*sizeof(float));
-  //hipMallocManaged(&c,n*sizeof(float));
-  hipMalloc(&d_a,n*sizeof(float));
-  // hipMalloc(&d_b,n*sizeof(float));
-  // hipMalloc(&d_c,n*sizeof(float));
+  hipMallocManaged(&a,n*sizeof(int));
+  //hipMallocManaged(&c,n*sizeof(int));
+  hipMalloc(&d_a,n*sizeof(int));
+  // hipMalloc(&d_b,n*sizeof(int));
+  // hipMalloc(&d_c,n*sizeof(int));
 
   for (int i=0; i < n; i++)
-    a[i] = (float)i+1.0f;
+    a[i] = (int)i+1.0f;
 
-  hipMemcpy(d_a,a,n*sizeof(float),hipMemcpyHostToDevice);
+  hipMemcpy(d_a,a,n*sizeof(int),hipMemcpyHostToDevice);
 
-  float gauss = n*(n+1)/2.0f;
+  int gauss = n*(n+1)/2.0f;
 
   /* Default hipHostMalloc */
 
-  hipHostMalloc(&out,sizeof(float),0);
+  hipHostMalloc(&out,sizeof(int),0);
   *out = 0.0f;
     
   atomicAdd_worse<<<n_blocks, n_threads>>>(d_a, out, n);
@@ -103,7 +103,7 @@ int main(void)
 
   /* Portable hipHostMalloc */
 
-  hipHostMalloc(&out,sizeof(float),hipHostMallocPortable);
+  hipHostMalloc(&out,sizeof(int),hipHostMallocPortable);
   *out = 0.0f;
     
   atomicAdd_worse<<<n_blocks, n_threads>>>(d_a, out, n);
@@ -123,7 +123,7 @@ int main(void)
 
   /* Coherent hipHostMalloc */
 
-  hipHostMalloc(&out,sizeof(float),hipHostMallocNonCoherent);
+  hipHostMalloc(&out,sizeof(int),hipHostMallocNonCoherent);
   *out = 0.0f;
     
   atomicAdd_worse<<<n_blocks, n_threads>>>(d_a, out, n);
@@ -141,7 +141,7 @@ int main(void)
 
   hipFree(out);
 
-  hipMallocManaged(&out,sizeof(float),hipMemAttachGlobal);
+  hipMallocManaged(&out,sizeof(int),hipMemAttachGlobal);
   *out = 0.0f;
   
   atomicAdd_worse<<<n_blocks, n_threads>>>(d_a, out, n);
@@ -162,8 +162,8 @@ int main(void)
   hipDevice_t device = -1;
   hipGetDevice(&device);
 
-  hipMallocManaged(&out,sizeof(float),hipMemAttachGlobal);
-  hipMemAdvise(out, sizeof(float), hipMemAdviseSetCoarseGrain, device);
+  hipMallocManaged(&out,sizeof(int),hipMemAttachGlobal);
+  hipMemAdvise(out, sizeof(int), hipMemAdviseSetCoarseGrain, device);
 
   *out = 0.0f;
   
@@ -182,7 +182,7 @@ int main(void)
   
   hipFree(out);
 
-  out = (float *) calloc(1,sizeof(float));
+  out = (int *) calloc(1,sizeof(int));
   
   atomicAdd_worse<<<n_blocks, n_threads>>>(a, out, n);
   hipDeviceSynchronize();
@@ -198,9 +198,9 @@ int main(void)
     }
 
   free(out);
-  out = (float *) malloc(sizeof(float));
+  out = (int *) malloc(sizeof(int));
   *out = 0.0f;
-  hipMemAdvise(out, sizeof(float), hipMemAdviseSetCoarseGrain, device);
+  hipMemAdvise(out, sizeof(int), hipMemAdviseSetCoarseGrain, device);
   
   atomicAdd_worse<<<n_blocks, n_threads>>>(a, out, n);
   hipDeviceSynchronize();
@@ -240,8 +240,8 @@ int main(void)
   // times =  std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
   // printf("Elapsed time: %lf sec.\n",times);
 
-  // hipMemcpy(d_a,a,n*sizeof(float),hipMemcpyHostToDevice);
-  // hipMemcpy(d_b,b,n*sizeof(float),hipMemcpyHostToDevice);
+  // hipMemcpy(d_a,a,n*sizeof(int),hipMemcpyHostToDevice);
+  // hipMemcpy(d_b,b,n*sizeof(int),hipMemcpyHostToDevice);
 
   // printf("==== Memory allocated on GPU with hipMalloc, accessed by GPU ====\n");
 
@@ -303,9 +303,9 @@ int main(void)
   // hipFree(b);
   // hipFree(c);
 
-  // hipMallocManaged(&a,n*sizeof(float));
-  // hipMallocManaged(&b,n*sizeof(float));
-  // hipMallocManaged(&c,n*sizeof(float));
+  // hipMallocManaged(&a,n*sizeof(int));
+  // hipMallocManaged(&b,n*sizeof(int));
+  // hipMallocManaged(&c,n*sizeof(int));
 
   // for (int i=0; i < n; i++)
   //   {
