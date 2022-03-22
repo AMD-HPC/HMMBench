@@ -91,6 +91,11 @@ int main(void)
   hipGetDevice(&device);
   printf("Running on device %d\n",device);
 
+  hipMemcpy(d_a,a,n*sizeof(float),hipMemcpyHostToDevice);
+  hipMemcpy(d_b,b,n*sizeof(float),hipMemcpyHostToDevice);
+  vector_add<<<n_blocks, n_threads>>>(d_c, d_a, d_b, n);
+  hipDeviceSynchronize();
+
   t1 = std::chrono::high_resolution_clock::now();  
 
   hipMemPrefetchAsync( a, n * sizeof(float), device);
@@ -128,9 +133,6 @@ int main(void)
   printf("CHECK: %d\n",check(c_gold,c,n));
   
   hipMemPrefetchAsync( c, n * sizeof(float), device);
-
-  hipMemcpy(d_a,a,n*sizeof(float),hipMemcpyHostToDevice);
-  hipMemcpy(d_b,b,n*sizeof(float),hipMemcpyHostToDevice);
 
   printf("==== Memory allocated on GPU with hipMalloc, accessed by GPU ====\n");
 

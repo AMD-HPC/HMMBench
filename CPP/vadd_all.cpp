@@ -87,6 +87,8 @@ int main(void)
 
   host_add(c_gold,a,b,n);
 
+  hipMemcpy(d_a,a,n*sizeof(float),hipMemcpyHostToDevice);
+  hipMemcpy(d_b,b,n*sizeof(float),hipMemcpyHostToDevice);
   vector_add<<<n_blocks, n_threads>>>(d_c, d_a, d_b, n);
   hipDeviceSynchronize();
 
@@ -111,9 +113,6 @@ int main(void)
   t2 = std::chrono::high_resolution_clock::now();
   times =  std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
   printf("Elapsed time: %lf sec.\n",times);
-  
-  hipMemcpy(d_a,a,n*sizeof(float),hipMemcpyHostToDevice);
-  hipMemcpy(d_b,b,n*sizeof(float),hipMemcpyHostToDevice);
 
   printf("==== Memory allocated on GPU, accessed by GPU ====\n");
 
