@@ -123,6 +123,13 @@ int main(void)
   b = (float *)aligned_alloc(64, n*sizeof(float));
   c = (float *)aligned_alloc(64, n*sizeof(float));
 
+  for (int i=0; i < n; i++)
+    {
+      a[i] = 1.0f;
+      b[i] = 2.0f;
+      c[i] = 0.0f;
+    }
+
   printf("==== Memory allocated on CPU (aligned 64), accessed by GPU ====\n");
 
   t1 = std::chrono::high_resolution_clock::now();
@@ -149,6 +156,13 @@ int main(void)
   b = (float *)aligned_alloc(32, n*sizeof(float));
   c = (float *)aligned_alloc(32, n*sizeof(float));
 
+  for (int i=0; i < n; i++)
+    {
+      a[i] = 1.0f;
+      b[i] = 2.0f;
+      c[i] = 0.0f;
+    }
+  
   printf("==== Memory allocated on CPU (aligned 32), accessed by GPU ====\n");
   
   t1 = std::chrono::high_resolution_clock::now();
@@ -175,6 +189,13 @@ int main(void)
   b = (float *)aligned_alloc(16, n*sizeof(float));
   c = (float *)aligned_alloc(16, n*sizeof(float));
 
+  for (int i=0; i < n; i++)
+    {
+      a[i] = 1.0f;
+      b[i] = 2.0f;
+      c[i] = 0.0f;
+    }
+
   printf("==== Memory allocated on CPU (aligned 16), accessed by GPU ====\n");
   
   t1 = std::chrono::high_resolution_clock::now();
@@ -194,6 +215,62 @@ int main(void)
   t2 = std::chrono::high_resolution_clock::now();
   times =  std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
   printf("Elapsed time: %lf sec.\n",times);
+
+  free(a); free(b); free(c);
+
+  a = new (std::align_val_t(4096)) float[n];
+  b = new (std::align_val_t(4096)) float[n];
+  c = new (std::align_val_t(4096)) float[n];
+
+  for (int i=0; i < n; i++)
+    {
+      a[i] = 1.0f;
+      b[i] = 2.0f;
+      c[i] = 0.0f;
+    }
+
+  printf("==== Memory allocated on CPU (aligned 4K), accessed by GPU ====\n");
+  
+  t1 = std::chrono::high_resolution_clock::now();
+
+  vector_add<<<n_blocks, n_threads>>>(c, a, b, n);
+  hipDeviceSynchronize();
+
+  t2 = std::chrono::high_resolution_clock::now();
+  times =  std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
+  printf("Warm-up elapsed time: %lf sec.\n",times);
+
+  t1 = std::chrono::high_resolution_clock::now();
+
+  vector_add<<<n_blocks, n_threads>>>(c, a, b, n);
+  hipDeviceSynchronize();
+
+  t2 = std::chrono::high_resolution_clock::now();
+  times =  std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
+  printf("Elapsed time: %lf sec.\n",times);
+
+  printf("==== Memory allocated on CPU (aligned 4K), accessed by CPU (Data on GPU) ====\n");
+  
+  t1 = std::chrono::high_resolution_clock::now();
+
+  host_add(c,a,b,n);
+
+  t2 = std::chrono::high_resolution_clock::now();
+  times =  std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
+  printf("Warm-up elapsed time: %lf sec.\n",times);
+
+  t1 = std::chrono::high_resolution_clock::now();
+
+  vector_add<<<n_blocks, n_threads>>>(c, a, b, n);
+  hipDeviceSynchronize();
+
+  t2 = std::chrono::high_resolution_clock::now();
+  times =  std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
+  printf("Elapsed time: %lf sec.\n",times);
+
+  host_add(c,a,b,n);
+
+  printf("CHECK: %d\n",check(c_gold,c,n));
 
   free(a); free(b); free(c);
 
