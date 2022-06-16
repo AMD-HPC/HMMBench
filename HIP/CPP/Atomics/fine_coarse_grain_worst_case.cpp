@@ -34,18 +34,6 @@ __global__ void atomicAdd_worse(float *a, float *out, int n)
     }  
 }
 
-// __global__ void vector_add_float(float *out, float *a, float *b, int n, float *flag)
-// {
-//   size_t index = blockIdx.x * blockDim.x + threadIdx.x;
-//   size_t stride = blockDim.x * gridDim.x;
-//   float one = 1.0f;
-
-//   for (size_t i = index; i < n; i += stride)
-//     out[i] = a[i] + b[i];
-
-//   atomicAdd(*flag , one);
-// }
-
 void host_add(float *out, float *a, float *b, int n)
 {
   int i = 0;
