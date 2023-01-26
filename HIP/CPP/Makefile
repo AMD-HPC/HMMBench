@@ -4,8 +4,8 @@ OBJ = $(SRC:.cpp=.o)
 ROCM_PATH ?= /opt/rocm
 HIPCC      = ${ROCM_PATH}/bin/hipcc
 
-CXXFLAGS       = -O3 -std=c++11
-CXXFLAGS      += --amdgpu-target=gfx90a
+CXXFLAGS       = -O3 -std=c++17
+CXXFLAGS      += --offload-arch=gfx90a
 
 rocm: $(OBJ)
 
